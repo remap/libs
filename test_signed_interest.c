@@ -24,7 +24,7 @@
 
 
 // replace_name()
-// Helper funtion to replace names in content objects
+// Helper function to replace names in content objects
 // Could build another version that works on already parsed content objects
 // But as seen below it would be better to use a modified encoding call that
 // didn't include the name at all.
