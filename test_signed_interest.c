@@ -10,12 +10,15 @@
 
 #include "signed_interest.h"
 
-// for hashtable of keystore via ccn handle - we should not need this
+// To use hashtable of keystore via ccn handle - we should not need this
 #include "ccn_internal_structs.h"
 
-enum ccn_upcall_res packet_handler(struct ccn_closure *selfp,
-                                     enum ccn_upcall_kind,
-                                     struct ccn_upcall_info *info);
+// Tutorials that should be written:
+//
+// - parsedContentObject
+// - using data structures associated with upcalls
+
+enum ccn_upcall_res packet_handler(struct ccn_closure *selfp, enum ccn_upcall_kind, struct ccn_upcall_info *info);
 
 void print_hex(FILE* fp, unsigned char* buf, int length, int  W) {
 	int k;
@@ -27,13 +30,9 @@ void print_hex(FILE* fp, unsigned char* buf, int length, int  W) {
 
 struct ccn_pkey* public_key = NULL;
 struct ccn_pkey* private_key = NULL;
-
 const char* NS_SIGNATURE = "org.named-data.sig";		// namespace (proposed)
 int NS_SIGNATURE_LEN = 0;
-
 const char* TEST_URI = "ccnx:/data_for_a_signed_interest";
-
-
 
 int main(int argc, char** argv) {
 	int res = 0;
@@ -54,7 +53,6 @@ int main(int argc, char** argv) {
         return(1);
     }
 
-
     // Create a single packet handler for interest and data upcalls
     struct ccn_closure *cl = NULL;
     cl = calloc(1, sizeof(*cl));
@@ -67,7 +65,7 @@ int main(int argc, char** argv) {
     ccn_name_from_uri(name, TEST_URI);
     ccn_name_append_nonce(name);
 
-    // Set up a handler for interest - using unsigned name as the prefix
+    // Set up a filter for interest - using unsigned name as the prefix
     res = ccn_set_interest_filter(ccn_pub, name, cl);
     if (res < 0) {
         fprintf(stderr, "Failed to register interest (res == %d)\n", res);
@@ -99,18 +97,7 @@ int main(int argc, char** argv) {
 	        private_key = (struct ccn_pkey*) ccn_keystore_private_key(keystore);
 	    }
 
-
-
-
-    // Create a signed version using the default key
-    struct ccn_charbuf *sigContentObj = ccn_charbuf_create();
-    struct ccn_charbuf *name_signed = ccn_charbuf_create();
-    ccn_charbuf_append(sigContentObj, NS_SIGNATURE, NS_SIGNATURE_LEN);
-
-
-
-
-    // Continue the part borrowed from ccn_client.c
+    // We'll need  a KeyLocator
     if (keylocator == NULL && (p.sp_flags & CCN_SP_OMIT_KEY_LOCATOR) == 0) {
         /* Construct a key locator containing the key itself */
         keylocator = ccn_charbuf_create();
@@ -132,11 +119,17 @@ int main(int argc, char** argv) {
 			 0,  /* FinalBlockID is optional */
 			 keylocator);
 
+    // Start to create a signed version using the default key
+    struct ccn_charbuf *sigContentObj = ccn_charbuf_create();
+    struct ccn_charbuf *name_signed = ccn_charbuf_create();
+    ccn_charbuf_append(sigContentObj, NS_SIGNATURE, NS_SIGNATURE_LEN);
+
     // Use this call so we can sign with a private key of our choice
     // Modified helper function that doesn't encode them name
-    res = ccn_encode_ContentObjectWithoutName(sigContentObj, name, signed_info, NULL, 0, NULL /* default sig alg */, private_key);
+    res = ccn_encode_ContentObjectWithoutName(sigContentObj, name, signed_info, NULL /* no data */, 0,
+    		NULL /* default sig alg */, private_key);
 
-    // TODO: rewrite to parse the content object and remove the name.
+    // TODO: rewrite to parse the content object and remove the name instead of using this call.
 
     if (res < 0) {
         fprintf(stderr, "Error signing (res == %d)\n", res);
@@ -146,7 +139,6 @@ int main(int argc, char** argv) {
     ccn_name_append(name_signed, sigContentObj->buf, sigContentObj->length);
 
     // Dump the signature
-    // fprintf(stderr,"Signature without header:\n");
     // print_hex(stderr,&(sigContentObj->buf)[NS_SIGNATURE_LEN],sigContentObj->length - NS_SIGNATURE_LEN,12);
     // fprintf(stderr,"\n");
 	//
@@ -156,7 +148,6 @@ int main(int argc, char** argv) {
     ccn_charbuf_destroy(&keylocator);
     ccn_charbuf_destroy(&finalblockid);
     ccn_charbuf_destroy(&signed_info);
-
 
     // Express the interest from a different ccn handle so we get the packet
     res = ccn_express_interest(ccn_rec, name_signed, cl, NULL);			// TODO: AnswerOriginKind could limit to signed interest?
@@ -185,7 +176,6 @@ packet_handler(struct ccn_closure *selfp,
                  enum ccn_upcall_kind upcall_kind,
                  struct ccn_upcall_info *info)
 {
-
 	// End the main loop
 	(*(int*)selfp->data) = 1;
 	ccn_set_run_timeout(info->h, 0); // Return to client faster
@@ -211,7 +201,6 @@ packet_handler(struct ccn_closure *selfp,
         return (0);
 
     case CCN_UPCALL_INTEREST:
-
     	fprintf(stderr, "CCN_UPCALL_INTEREST, (matched comps == %d)\n", info->matched_comps);
 
         // What is this count?
@@ -228,7 +217,6 @@ packet_handler(struct ccn_closure *selfp,
 	                                     info->interest_comps->buf[0],
 	                                     info->interest_comps->buf[info->matched_comps]);
 
-
 	    // Last component, should be the signature
         res = ccn_name_comp_get(info->interest_ccnb, info->interest_comps,
                                 info->matched_comps,
@@ -242,15 +230,12 @@ packet_handler(struct ccn_closure *selfp,
 		struct ccn_parsed_ContentObject pco = {0};
 	    unsigned char* co = &comp[NS_SIGNATURE_LEN];
 		res = ccn_parse_ContentObject(co, size-NS_SIGNATURE_LEN, &pco, NULL);
-		fprintf(stderr, "ccn_parseContentObject == %d\n", res);
-
+		fprintf(stderr, "ccn_parseContentObject == %d (%s)\n", res, (res==0)?"ok":"fail");
 
 		// Reassemble a Content object with the name so we can use off the shelf sig verification
-		struct ccn_charbuf* co_with_name = NULL;
-		co_with_name = ccn_charbuf_create();
-
+		struct ccn_charbuf* co_with_name = ccn_charbuf_create();
 		ccn_charbuf_append_tt(co_with_name, CCN_DTAG_ContentObject, CCN_DTAG);
-		// The CCN_PCO_B_* offsets point to the beginning of *tagged* content, don't retag them.
+		// The CCN_PCO_B_* offsets point to the beginning of *tagged* content, don't retag them. [Needs to be documented?]
 		ccn_charbuf_append(co_with_name, &co[pco.offset[CCN_PCO_B_Signature]], pco.offset[CCN_PCO_E_Signature] - pco.offset[CCN_PCO_B_Signature]);
 		ccn_charbuf_append_charbuf(co_with_name, name); // Already tagged
 		ccn_charbuf_append(co_with_name, &co[pco.offset[CCN_PCO_B_SignedInfo]], pco.offset[CCN_PCO_E_SignedInfo] - pco.offset[CCN_PCO_B_SignedInfo]);
@@ -264,14 +249,11 @@ packet_handler(struct ccn_closure *selfp,
 			res = ccn_verify_signature(co_with_name->buf, pco.offset[CCN_PCO_E], &pco, public_key);
 			fprintf(stderr, "ccn_verify_signature == %d (%s)\n", res, (res==1)?"verified":"unverified");
 		} else {
-			fprintf(stderr, "Constructed content object parse failed\n");
+			fprintf(stderr, "Constructed content object parse failed (res==%d)\n", res);
 		}
-
 		ccn_charbuf_destroy(&co_with_name);
-
         return (0);
     }
-
     return (-1);
 
 }
