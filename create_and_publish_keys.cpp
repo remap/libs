@@ -86,8 +86,7 @@ int main(int argc, char** argv) {
 	 write_key_pem_public(stderr, private_key);
 	 release_key(&private_key, &public_key, &public_key_digest);
 
-	 // 3. Read the key back in, this time use a keypair
-	 // struct
+	 // 3. Read the key back in
 	 pem_file = fopen("test.pem", "r");
 	 read_key_pem(pem_file, &private_key, &public_key, &public_key_digest, &public_key_digest_len);
 	 fclose(pem_file);
