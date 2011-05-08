@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
 
     // Closure to handle upcalls
     struct ccn_closure *cl = NULL;
-    cl = calloc(1, sizeof(*cl));
+    cl = (struct ccn_closure*) calloc(1, sizeof(struct ccn_closure));
     cl->p = &packet_handler;
     handler_data h_data = { &complete, &outstanding_interests, &public_key, &ccn_pub, &ccn_rec};
     cl->data = &h_data;
