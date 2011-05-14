@@ -8,6 +8,17 @@
 #ifndef KEY_UTILS_HPP_
 #define KEY_UTILS_HPP_
 
+// Load these here to make it easier on the app
+
+// On MacOS X, need to have the latest version from MacPorts
+// and add /opt/local/include as an include path
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+#include <openssl/ossl_typ.h>
+
+
 extern "C" {
 #include <ccn/keystore.h>
 }

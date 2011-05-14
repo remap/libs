@@ -215,6 +215,8 @@ int main(int argc, char** argv) {
 
 // packet_handler()
 //
+/* per ccnls code, note that comps->n is 1 greater than the number of explicit components */
+/* does that mean the last component is the implicit digest ? */
 enum ccn_upcall_res
 packet_handler(struct ccn_closure *selfp,
                  enum ccn_upcall_kind upcall_kind,
