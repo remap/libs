@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
 	 keypair* KP;
 	 generate_keypair(1024, &KP);
 
-	// DISCOVERY SUPPORT EXAMPLE - CONTENT PRODUCER / PREFIX REGISTRANT
+	// DISCOVERY SUPPORT EXAMPLE - NAME PUBLISHER / CONTENT PRODUCERS
 	//
 
 	// Note we are only handling discovery for one prefix
@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
 		ccn_charbuf_destroy(&reply_name);
 	    }
 
-	// DISCOVERY EXAMPLE - FINDING THE CHILDREN
+	// DISCOVERY EXAMPLE - NAME SEEKER - FIND THE CHILDREN
 	//
 
 	// We will store the children here... strings only, no ccnb encoding (not generalized)
@@ -267,7 +267,7 @@ packet_handler(struct ccn_closure *selfp,
 
     switch(upcall_kind) {
 
-	// DISCOVERY RECIPIENT - HANDLES ContentObjects RETURNING TO DISCOVERY MECHANISM
+	// NAME SEEKER UPCALL - HANDLES ContentObjects RETURNING TO DISCOVERY MECHANISM
 	//
 	// By being received in UPCALL_CONTENT, we know that signature was verified
     //
@@ -336,7 +336,7 @@ packet_handler(struct ccn_closure *selfp,
         ccn_indexbuf_destroy(&name_comps);
         return (CCN_UPCALL_RESULT_OK);
 
-    // DISCOVERY PROVIDER - PREFIX REGISTRANT SIDE, ANSWER INTERESTS EXPRESSED FOR root_prefix
+    // NAME PUBLISHER UPCALL - DISCOVERY PROVIDER - PREFIX REGISTRANT SIDE, ANSWER INTERESTS EXPRESSED FOR root_prefix
     //
     case CCN_UPCALL_INTEREST:
     	interest_name = ccn_charbuf_create();
