@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
     cl->data = &h_data;
 
     // Setup our one test name without signature
+    // The nonce here is just a random string, to avoid content store caching
     struct ccn_charbuf* name;
     name = ccn_charbuf_create();
     ccn_name_from_uri(name, TEST_URI);
@@ -163,6 +164,13 @@ int main(int argc, char** argv) {
 			 p.freshness,
 			 0,  /* FinalBlockID is optional */
 			 keylocator);
+
+    // * Test using interests for a name that has one more component than our registered prefix
+    // This is more representative of real apps...
+    // 20-May-2011
+    ccn_name_append_str(name, "some stuff in a name component");
+    ccn_name_append_nonce(name);
+    ccn_name_append_nonce(name);
 
     // Sign the interest
     struct ccn_charbuf *name_signed = ccn_charbuf_create();
@@ -256,15 +264,21 @@ packet_handler(struct ccn_closure *selfp,
         fprintf(stderr, "CCN_UPCALL_CONSUMED_INTEREST\n");
         return (CCN_UPCALL_RESULT_OK);
     case CCN_UPCALL_INTEREST:
-    	fprintf(stderr, "CCN_UPCALL_INTEREST, (matched comps == %d)\n", info->matched_comps);
+    	fprintf(stderr, "CCN_UPCALL_INTEREST, (matched comp  == %d)\n", info->matched_comps);
+    	fprintf(stderr, "                     (interest comps == %zu)\n", info->interest_comps->n);
     	int res = 0;
 
+    	// Corrected 20-May-2011 to support interests with additional components after prefix
+    	//
+    	if (info->interest_comps->n < 3) {	// Name + signature + implicit digest, minimum
+    		fprintf(stderr, "\tnot enough components, %zu<3\n", info->interest_comps->n);
+    	} else {
     	// Verify the interest
-    	res = verify_signed_interest(info->interest_ccnb, info->interest_comps,
-    								 info->matched_comps, info->interest_comps->buf[0], info->interest_comps->buf[info->matched_comps],
-    						 		   (*h_data->public_key));
-		fprintf(stderr, "\tverify_signed_interest == %d (%s)\n", res, (res==1)?"verified":"unverified");
-
+			res = verify_signed_interest(info->interest_ccnb, info->interest_comps,
+										 info->interest_comps->n-2, info->interest_comps->buf[0], info->interest_comps->buf[info->interest_comps->n-2],
+										   (*h_data->public_key));
+			fprintf(stderr, "\tverify_signed_interest == %d (%s)\n", res, (res==1)?"verified":"unverified");
+    	}
 		// Based on the results,
 		// create and send a reply using default key & algorithm for the receiving handle
 		// to sign the content object.
